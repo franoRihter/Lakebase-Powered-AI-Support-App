@@ -25,6 +25,8 @@ logger = logging.getLogger("massive-app")
 app = Flask(__name__)
 _w = WorkspaceClient()
 
+# Table for Massive API sync data (currently unused - Massive API integration disabled)
+TABLE_NAME = os.environ.get("TABLE_NAME", "massive_records")
 WATCHLIST_TABLE_NAME = os.environ.get("WATCHLIST_TABLE_NAME", "watchlist")
 
 # Basic stock ticker shape check: 1-10 uppercase letters, with an optional
