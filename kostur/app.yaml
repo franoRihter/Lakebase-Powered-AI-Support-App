@@ -1,0 +1,15 @@
+command: ["python", "app.py"]
+
+env:
+  - name: "PGHOST"
+    valueFrom: "lakebase-host"
+  - name: "PGPORT"
+    value: "5432"
+  - name: "PGDATABASE"
+    valueFrom: "lakebase-database"
+  - name: "PGUSER"
+    valueFrom: "lakebase-user"
+  - name: "PGPASSWORD"
+    valueFrom: "lakebase-password"
+  - name: "PGSSLMODE"
+    value: "require"

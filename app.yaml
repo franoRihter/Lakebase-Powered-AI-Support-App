@@ -4,6 +4,6 @@ command:
 
 env:
   - name: LAKEBASE_SECRET_SCOPE
-    value: "database"
+    value: "ticker_system"
   - name: LAKEBASE_SECRET_KEY
     value: "lakebase-url"

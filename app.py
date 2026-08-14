@@ -27,7 +27,7 @@ _w = WorkspaceClient()
 
 # Table for Massive API sync data (currently unused - Massive API integration disabled)
 TABLE_NAME = os.environ.get("TABLE_NAME", "massive_records")
-WATCHLIST_TABLE_NAME = os.environ.get("WATCHLIST_TABLE_NAME", "watchlist")
+TICKETS_TABLE_NAME = os.environ.get("TICKETS_TABLE_NAME", "tickets")
 
 # Basic stock ticker shape check: 1-10 uppercase letters, with an optional
 # ".X" or ".XX" share-class suffix (e.g. "BRK.B"). This rejects obviously
@@ -48,17 +48,15 @@ def ensure_table():
     )
 
 
-def ensure_watchlist_table():
-    """Create the watchlist table in Lakebase if it doesn't exist yet."""
+def ensure_tickets_table():
+    """Create the tickets table in Lakebase if it doesn't exist yet."""
     lakebase.run_write(
         f"""
-        CREATE TABLE IF NOT EXISTS {WATCHLIST_TABLE_NAME} (
-            symbol TEXT NOT NULL,
-            email TEXT NOT NULL,
-            latest_price NUMERIC,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            PRIMARY KEY (symbol, email)
-        )
+        create table if not exists tickets 
+        (ticket_id integer primary key, title varchar(255), 
+        status text not null default 'open' check (status in ('open', 'in_progress', 'resolved')), 
+        created_by varchar(255), 
+        created_at date);
         """
     )
 
@@ -136,50 +134,26 @@ def sync_from_massive():
     return jsonify({"synced": total})
 
 
-@app.route("/watchlist", methods=["GET"])
-def get_watchlist():
-    """Return the current user's watchlist symbols, with their last known price."""
-    ensure_watchlist_table()
-    email = _current_user_email()
+@app.route("/tickets", methods=["GET"])
+def get_tickets():
+    """Return the current user's tickets symbols, with their last known price."""
+    ensure_tickets_table()
     rows = lakebase.run_query(
-        f"SELECT symbol, email, latest_price, updated_at FROM {WATCHLIST_TABLE_NAME} "
-        f"WHERE email = %s ORDER BY symbol ASC",
+        f"select title, status, created_by, created_at from {TICKETS_TABLE_NAME} "
+        f"WHERE created_by= %s ORDER BY symbol ASC",
         (email,),
     )
     return jsonify(rows)
 
 
-@app.route("/watchlist", methods=["POST"])
-def add_to_watchlist():
+@app.route("/tickets", methods=["POST"])
+def add_to_ticketst():
     """
     Fetch the latest price for a single stock symbol from Massive using
     exactly ONE API call (see MassiveClient.get_latest_price), then add/
-    update that symbol on the watchlist in Lakebase.
+    update that symbol on the tickets in Lakebase.
     """
-    ensure_watchlist_table()
-
-    if request.is_json:
-        symbol = request.json.get("symbol", "")
-    else:
-        symbol = request.form.get("symbol", "")
-
-    symbol = symbol.strip().upper() if isinstance(symbol, str) else ""
-
-    if not symbol or not _TICKER_RE.match(symbol):
-        return jsonify({"error": f"Invalid ticker symbol: {symbol!r}"}), 400
-
-    client = MassiveClient()
-    try:
-        data = client.get_latest_price(symbol)  # <-- single API call, latest price only
-    except requests.HTTPError:
-        # Massive returns a 404/4xx for tickers it doesn't recognize.
-        return jsonify({"error": f"Unknown ticker symbol: {symbol}"}), 400
-
-    price = _extract_latest_price(data)
-    if price is None:
-        # No usable price in the response (e.g. delisted/invalid ticker
-        # that still 200s with an empty result set) - don't add it.
-        return jsonify({"error": f"No price data available for ticker: {symbol}"}), 400
+    ensure_tickets_table()
 
     email = _current_user_email()
 
